@@ -1,4 +1,4 @@
-***********************************************************************
+/***********************************************************************
 
    SimpleWebServer.java
 
@@ -19,14 +19,14 @@ import java.util.*;
 public class SimpleWebServer {                            
  
     /* Run the HTTP server on this TCP port. */           
-    private static final int PORT = 8080;                 
+    private static final int PORT = 5000;                 
  
     /* The socket used to process incoming connections
        from web clients */
     private static ServerSocket dServerSocket;            
    
     public SimpleWebServer () throws Exception {          
- 	dServerSocket = new ServerSocket (PORT);          
+ 		dServerSocket = new ServerSocket (PORT);          
     }                                                     
  
     public void run() throws Exception {                 
@@ -117,7 +117,8 @@ public class SimpleWebServer {
  	while (c != -1) {       
 	    sb.append((char)c);                            
  	    c = fr.read();                                  
- 	}                                                   
+ 	} 
+	fr.close();                                                  
  	osw.write (sb.toString());                                  
     }                                                       
  
