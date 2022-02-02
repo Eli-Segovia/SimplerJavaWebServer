@@ -19,23 +19,27 @@ import java.util.*;
 public class SimpleWebServer {                            
  
     /* Run the HTTP server on this TCP port. */           
-    private static final int PORT = 5000;                 
+    private static final int PORT = 3000;                 
  
     /* The socket used to process incoming connections
        from web clients */
     private static ServerSocket dServerSocket;            
    
     public SimpleWebServer () throws Exception {          
- 		dServerSocket = new ServerSocket (PORT);          
+ 		dServerSocket = new ServerSocket (PORT); 
+		System.out.println("Running socket on port " + PORT);       
     }                                                     
  
     public void run() throws Exception {                 
 	while (true) {                                   
  	    /* wait for a connection from a client */
- 	    Socket s = dServerSocket.accept();           
- 
+ 	    Socket s = dServerSocket.accept();   
+		 s.setKeepAlive(false);        
  	    /* then process the client's request */
- 	    processRequest(s);                           
+ 	    processRequest(s);   
+		 s.close();    
+		 dServerSocket.close();    
+		 dServerSocket = new ServerSocket (PORT);            
  	}                                                
     }                                                    
  
@@ -44,28 +48,36 @@ public class SimpleWebServer {
        a HTTP error code. */
     public void processRequest(Socket s) throws Exception { 
  	/* used to read data from the client */ 
- 	BufferedReader br =                                 
- 	    new BufferedReader (
-				new InputStreamReader (s.getInputStream())); 
+
+	System.out.println(s.getInputStream());
+ 	DataInputStream in = new DataInputStream(
+		 new BufferedInputStream(s.getInputStream())
+		 ); 
+
+	BufferedReader d = new BufferedReader(new InputStreamReader(in));
  
  	/* used to write data to the client */
  	OutputStreamWriter osw =                            
  	    new OutputStreamWriter (s.getOutputStream());  
      
  	/* read the HTTP request from the client */
- 	String request = br.readLine();                    
+ 	String request = d.readLine();
+	 System.out.println("This is the reqeust: " + request);                   
  
  	String command = null;                             
  	String pathname = null;                            
      
  	/* parse the HTTP request */
- 	StringTokenizer st = 
+	 if(!(request == null)) {
+		StringTokenizer st = 
 	    new StringTokenizer (request, " ");               
  
  	command = st.nextToken();                       
- 	pathname = st.nextToken();                      
+ 	pathname = st.nextToken();   
+	 System.out.println("got " + command + " command")   ;
+	 System.out.println("got " + pathname + " for pathname" );                
  
-	if (command.equals("GET")) {                    
+	if (command.equals("GET")) {                  
 	    /* if the request is a GET
 	       try to respond with the file
 	       the user is requesting */
@@ -80,7 +92,9 @@ public class SimpleWebServer {
  	
  	/* close the connection to the client */
  	osw.close();                                    
-    }                                                   
+      }
+	}
+ 	                                                   
  
     public void serveFile (OutputStreamWriter osw,      
 			   String pathname) throws Exception {
@@ -127,7 +141,8 @@ public class SimpleWebServer {
     public static void main (String argv[]) throws Exception { 
  
  	/* Create a SimpleWebServer object, and run it */
- 	SimpleWebServer sws = new SimpleWebServer();           
+ 	SimpleWebServer sws = new SimpleWebServer();   
+	 System.out.println("Working Directory = " + System.getProperty("user.dir"));       
  	sws.run();                                             
     }                                                          
 }
