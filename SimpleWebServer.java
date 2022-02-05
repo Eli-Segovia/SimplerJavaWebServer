@@ -41,6 +41,7 @@ public class SimpleWebServer {
 			/* then process the client's request */
 			processRequest(s);
 			System.out.println("Request Processed");
+			s.close();
 
 		}
 	}
@@ -55,18 +56,28 @@ public class SimpleWebServer {
 		InputStream inputStream = s.getInputStream();
 
 		System.out.println(inputStream);
-		// DataInputStream in = new DataInputStream(
-		// new BufferedInputStream(s.getInputStream()));
+		DataInputStream in = new DataInputStream(
+				new BufferedInputStream(s.getInputStream()));
 
-		// BufferedReader d = new BufferedReader(new InputStreamReader(in));
+		BufferedReader d = new BufferedReader(new InputStreamReader(in));
 
 		// /* used to write data to the client */
 		OutputStreamWriter osw = new OutputStreamWriter(s.getOutputStream());
 
-		String request = readAll(inputStream);
-
 		/* read the HTTP request from the client */
-		// String request = d.readLine();
+
+		// close the reader and leave if the reader is not reader. I found that it
+		// simply did
+		// not work if the reader was not ready. Browsers in particular would cause
+		// slowdowns
+		// for some reason.
+		String request = "";
+		if (d.ready()) {
+			request = d.readLine();
+		} else {
+			d.close();
+			return;
+		}
 		System.out.println("This is the reqeust: " + request);
 
 		String command = null;
@@ -169,7 +180,6 @@ public class SimpleWebServer {
 			String noWhitespace = line.replaceAll("(?m)^[ \t]*\r?\n", "");
 			if (noWhitespace == "") {
 				System.out.println("We should be here");
-				break;
 			} else {
 				buffer.append(line);
 				buffer.append("\n");
