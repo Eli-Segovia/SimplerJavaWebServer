@@ -35,13 +35,13 @@ public class SimpleWebServer {
 	public void run() throws Exception {
 		while (true) {
 			/* wait for a connection from a client */
+			System.out.println("Waiting For Request...");
 			Socket s = dServerSocket.accept();
-			s.setKeepAlive(false);
 			/* then process the client's request */
 			processRequest(s);
+			System.out.println("Request Processed");
 			s.close();
-			dServerSocket.close();
-			dServerSocket = new ServerSocket(PORT);
+
 		}
 	}
 
@@ -52,18 +52,31 @@ public class SimpleWebServer {
 	 */
 	public void processRequest(Socket s) throws Exception {
 		/* used to read data from the client */
+		InputStream inputStream = s.getInputStream();
 
-		System.out.println(s.getInputStream());
+		System.out.println(inputStream);
 		DataInputStream in = new DataInputStream(
 				new BufferedInputStream(s.getInputStream()));
 
 		BufferedReader d = new BufferedReader(new InputStreamReader(in));
 
-		/* used to write data to the client */
+		// /* used to write data to the client */
 		OutputStreamWriter osw = new OutputStreamWriter(s.getOutputStream());
 
 		/* read the HTTP request from the client */
-		String request = d.readLine();
+
+		// close the reader and leave if the reader is not reader. I found that it
+		// simply did
+		// not work if the reader was not ready. Browsers in particular would cause
+		// slowdowns
+		// for some reason.
+		String request = "";
+		if (d.ready()) {
+			request = d.readLine();
+		} else {
+			d.close();
+			return;
+		}
 		System.out.println("This is the reqeust: " + request);
 
 		String command = null;
@@ -95,8 +108,11 @@ public class SimpleWebServer {
 			}
 
 			/* close the connection to the client */
-			osw.close();
 		}
+
+		System.out.println("We were able to close connection");
+		osw.close();
+		return;
 	}
 
 	public void serveFile(OutputStreamWriter osw,
@@ -144,6 +160,33 @@ public class SimpleWebServer {
 		}
 		fr.close();
 		osw.write(sb.toString());
+	}
+
+	public static String readAll(InputStream input) {
+		BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+		StringBuffer buffer = new StringBuffer();
+		System.out.println("Started reading");
+		while (true) {
+			String line;
+			try {
+				line = reader.readLine();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			if (line == null) {
+				break;
+			}
+			String noWhitespace = line.replaceAll("(?m)^[ \t]*\r?\n", "");
+			if (noWhitespace == "") {
+				System.out.println("We should be here");
+			} else {
+				buffer.append(line);
+				buffer.append("\n");
+			}
+
+		}
+		System.out.println("we are here");
+		return buffer.toString();
 	}
 
 	/*
