@@ -98,7 +98,13 @@ public class SimpleWebServer {
 				 * the user is requesting
 				 */
 				serveFile(osw, pathname);
-			} else {
+			}
+
+			else if (command.equals("PUT")) {
+				storeFile(d, osw, pathname);
+			}
+
+			else {
 				/*
 				 * if the request is a NOT a GET,
 				 * return an error saying this server
@@ -160,6 +166,33 @@ public class SimpleWebServer {
 		}
 		fr.close();
 		osw.write(sb.toString());
+	}
+
+	public void storeFile(BufferedReader br, OutputStreamWriter osw, String pathname) throws Exception {
+		FileWriter fw = null;
+		try {
+			fw = new FileWriter(pathname);
+			String s = br.readLine();
+			System.out.println(s);
+			while (s != null) {
+				fw.write(s);
+				s = br.readLine();
+			}
+			fw.close();
+			osw.write("HTTP/1.0 201 Created");
+		} catch (Exception e) {
+			osw.write("HTTP/1.0 500 Internal Server Error");
+		}
+	}
+
+	public void logEntry(String filename, String record) {
+		FileWriter fw = new FileWriter(filename, true);
+		fw.write(getTimestamp() + " " + record);
+		fw.close();
+	}
+
+	public String getTimestamp() {
+		return (new Date()).toString();
 	}
 
 	public static String readAll(InputStream input) {
