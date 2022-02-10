@@ -39,9 +39,6 @@ public class SimpleWebServer {
 			Socket s = dServerSocket.accept();
 			/* then process the client's request */
 			processRequest(s);
-			System.out.println("Request Processed");
-			s.close();
-
 		}
 	}
 
@@ -51,37 +48,52 @@ public class SimpleWebServer {
 	 * a HTTP error code.
 	 */
 	public void processRequest(Socket s) throws Exception {
-		/* used to read data from the client */
-		InputStream inputStream = s.getInputStream();
 
-		System.out.println(inputStream);
 		DataInputStream in = new DataInputStream(
 				new BufferedInputStream(s.getInputStream()));
 
-		BufferedReader d = new BufferedReader(new InputStreamReader(in));
+		/* used to read data from the client */
+		BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
-		// /* used to write data to the client */
 		OutputStreamWriter osw = new OutputStreamWriter(s.getOutputStream());
-
-		/* read the HTTP request from the client */
-
-		// close the reader and leave if the reader is not reader. I found that it
-		// simply did
-		// not work if the reader was not ready. Browsers in particular would cause
-		// slowdowns
-		// for some reason.
-		String request = "";
-		if (d.ready()) {
-			request = d.readLine();
-		} else {
-			d.close();
-			return;
-		}
-		System.out.println("This is the reqeust: " + request);
 
 		String command = null;
 		String pathname = null;
+		StringBuilder sb = new StringBuilder();
+		String request = null;
+		int tries = 0;
+		int LIMIT = 10;
+		int delay = 1000;
+		String line;
+		boolean terminate = false;
+		while (true) {
+			if (!br.ready())
+				break;
+			if (br.ready()) {
+				line = br.readLine();
+				System.out.println("line: " + line);
+				if (line.length() != 0) {
+					sb.append(line);
+					sb.append("\n");
+				} else {
+					request = sb.toString();
+					System.out.println("we quit");
+					break;
+				}
+			} else if (br.readLine() == null) {
+				continue;
+			} else {
+				if (tries < LIMIT) {
+					tries++;
+					Thread.sleep(delay);
+				} else {
+					System.out.println("stuck here?");
+					break;
+				}
+			}
+		}
 
+		System.out.println("request: " + request);
 		/* parse the HTTP request */
 		if (!(request == null)) {
 			StringTokenizer st = new StringTokenizer(request, " ");
@@ -101,7 +113,10 @@ public class SimpleWebServer {
 			}
 
 			else if (command.equals("PUT")) {
-				storeFile(d, osw, pathname);
+				osw.flush();
+				logEntry("server.log", "PUT " + pathname);
+				osw = new OutputStreamWriter(s.getOutputStream());
+				storeFile(br, osw, pathname);
 			}
 
 			else {
@@ -114,10 +129,17 @@ public class SimpleWebServer {
 			}
 
 			/* close the connection to the client */
-		}
+			// osw.close();
 
-		System.out.println("We were able to close connection");
+			System.out.println("We were able to close connection");
+
+		} else {
+
+		}
 		osw.close();
+		br.close();
+		in.close();
+		s.close();
 		return;
 	}
 
@@ -125,7 +147,8 @@ public class SimpleWebServer {
 			String pathname) throws Exception {
 		FileReader fr = null;
 		int c = -1;
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
+		long fileSize = 0;
 
 		/*
 		 * remove the initial slash at the beginning
@@ -145,6 +168,9 @@ public class SimpleWebServer {
 		try {
 			fr = new FileReader(pathname);
 			c = fr.read();
+
+			fileSize = new File(pathname).length();
+
 		} catch (Exception e) {
 			/*
 			 * if the file is not found,return the
@@ -154,72 +180,58 @@ public class SimpleWebServer {
 			return;
 		}
 
+		if (fileSize > 4000) {
+			osw.write("HTTP/1.0 403 Forbidden\n\n");
+		}
 		/*
 		 * if the requested file can be successfully opened
 		 * and read, then return an OK response code and
 		 * send the contents of the file
 		 */
-		osw.write("HTTP/1.0 200 OK\n\n");
-		while (c != -1) {
-			sb.append((char) c);
-			c = fr.read();
+		else {
+			osw.write("HTTP/1.0 200 OK\n\n");
+			while (c != -1) {
+				sb.append((char) c);
+				c = fr.read();
+			}
+			osw.write(sb.toString());
 		}
 		fr.close();
-		osw.write(sb.toString());
 	}
 
 	public void storeFile(BufferedReader br, OutputStreamWriter osw, String pathname) throws Exception {
 		FileWriter fw = null;
+		StringBuilder sb = new StringBuilder();
 		try {
 			fw = new FileWriter(pathname);
-			String s = br.readLine();
-			System.out.println(s);
-			while (s != null) {
-				fw.write(s);
-				s = br.readLine();
+
+			while (br.ready()) {
+				char c = (char) br.read();
+				sb.append(c);
 			}
+			String body = sb.toString();
+			fw.write(body);
 			fw.close();
-			osw.write("HTTP/1.0 201 Created");
+			osw.write("HTTP/1.0 201 Created\n\n");
+			osw.flush();
 		} catch (Exception e) {
-			osw.write("HTTP/1.0 500 Internal Server Error");
+			osw.write("HTTP/1.0 500 Internal Server Error\n\n");
 		}
 	}
 
 	public void logEntry(String filename, String record) {
-		FileWriter fw = new FileWriter(filename, true);
-		fw.write(getTimestamp() + " " + record);
-		fw.close();
+		try {
+			FileWriter fw = new FileWriter(filename, true);
+			fw.write(getTimestamp() + " " + record);
+			fw.close();
+
+		} catch (Exception e) {
+
+		}
 	}
 
 	public String getTimestamp() {
 		return (new Date()).toString();
-	}
-
-	public static String readAll(InputStream input) {
-		BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-		StringBuffer buffer = new StringBuffer();
-		System.out.println("Started reading");
-		while (true) {
-			String line;
-			try {
-				line = reader.readLine();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-			if (line == null) {
-				break;
-			}
-			String noWhitespace = line.replaceAll("(?m)^[ \t]*\r?\n", "");
-			if (noWhitespace == "") {
-				System.out.println("We should be here");
-			} else {
-				buffer.append(line);
-				buffer.append("\n");
-			}
-
-		}
-		System.out.println("we are here");
-		return buffer.toString();
 	}
 
 	/*
