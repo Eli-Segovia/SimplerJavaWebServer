@@ -21,6 +21,9 @@ public class SimpleWebServer {
 	/* Run the HTTP server on this TCP port. */
 	private static final int PORT = 3000;
 
+	private static final String username = "esegovia";
+	private static final String password = "password";
+
 	/*
 	 * The socket used to process incoming connections
 	 * from web clients
@@ -59,6 +62,8 @@ public class SimpleWebServer {
 
 		String command = null;
 		String pathname = null;
+		Boolean usingAuth = false;
+		String encodedCreds = null;
 		StringBuilder sb = new StringBuilder();
 		String request = null;
 		int tries = 0;
@@ -97,9 +102,39 @@ public class SimpleWebServer {
 		/* parse the HTTP request */
 		if (!(request == null)) {
 			StringTokenizer st = new StringTokenizer(request, " ");
-
 			command = st.nextToken();
 			pathname = st.nextToken();
+			String next = st.nextToken();
+			usingAuth = next.indexOf("Authorization") > -1;
+			if (usingAuth){
+				st.nextToken();
+				next = st.nextToken();
+				encodedCreds = next.substring(0, next.indexOf("\n"));
+				System.out.println("'" + encodedCreds + "'");
+			} else {
+				osw.write("HTTP/1.0 401 Unauthorized\nWWW-Authenticate: Basic realm=\"Access to the webserver\", charset=\"UTF-8\"\n\n");
+				osw.close();
+				br.close();
+				in.close();
+				s.close();
+				return;
+			}
+
+			byte[] decodedBytes = Base64.getDecoder().decode(encodedCreds);
+			String decodedStr = new String(decodedBytes);
+			System.out.println(decodedStr);
+
+			if (decodedStr.compareTo(username + ":" + password) == 0) {
+				System.out.println("Welcome " + username + " :)");
+			} else {
+				osw.write("HTTP/1.0 401 Unauthorized\n\n");
+				osw.close();
+				br.close();
+				in.close();
+				s.close();
+				return;
+			}
+			
 			System.out.println("got " + command + " command");
 			System.out.println("got " + pathname + " for pathname");
 
